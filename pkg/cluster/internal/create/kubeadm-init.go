@@ -122,10 +122,18 @@ func runKubeadmInit(ec *execContext, configNode *NodeReplica) error {
 		// fallback to our old pattern of installing weave using their recommended method
 		if err := node.Command(
 			"/bin/sh", "-c",
-			`kubectl apply --kubeconfig=/etc/kubernetes/admin.conf -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version --kubeconfig=/etc/kubernetes/admin.conf | base64 | tr -d '\n')"`,
+			`curl -k --location --proxy 172.17.0.1:8118 "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version --kubeconfig=/etc/kubernetes/admin.conf | base64 | tr -d '\n')" -o net.yaml`,
+		).Run(); err != nil {
+			return errors.Wrap(err, "failed to get network yaml")
+		}
+
+		if err = node.Command(
+			"/bin/sh", "-c",
+			`kubectl apply --kubeconfig=/etc/kubernetes/admin.conf -f net.yaml`,
 		).Run(); err != nil {
 			return errors.Wrap(err, "failed to apply overlay network")
 		}
+
 	}
 
 	// if we are only provisioning one node, remove the master taint
